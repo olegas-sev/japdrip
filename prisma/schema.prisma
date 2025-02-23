@@ -1,0 +1,188 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id Int @id @default(autoincrement())
+
+  fullName String
+  username String   @unique
+  email    String   @unique
+  password String
+  role     UserRole @default(USER)
+
+  // MFA
+  provider   String?
+  providerId String?
+
+  cart             Cart?
+  orders           Order[]
+  verificationCode VerificationCode?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id    Int    @id @default(autoincrement())
+  title String @unique
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  title    String
+  imageUrl String
+
+  // Many to Many: Product - Material
+  materials Material[]
+
+  // One to Many
+  types ProductItem[]
+
+  // Link Category id's with Category id's 
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductItem {
+  id Int @id @default(autoincrement())
+
+  color String?
+  size  Int?
+  price Int
+
+  cartItems CartItem[]
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Material {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  price     Int
+  products  Product[]
+  cartItems CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cart {
+  id Int @id @default(autoincrement())
+
+  userId Int?  @unique
+  user   User? @relation(fields: [userId], references: [id])
+
+  items CartItem[]
+
+  token String
+
+  total Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CartItem {
+  id Int @id @default(autoincrement())
+
+  cart   Cart @relation(fields: [cartId], references: [id])
+  cartId Int
+
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+  productItemId Int
+
+  quantity Int @default(1)
+
+  materials Material[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id Int @id @default(autoincrement())
+
+  user   User? @relation(fields: [userId], references: [id])
+  userId Int?
+
+  token String
+
+  totalAmount Int
+  status      OrderStatus
+
+  // For handling transactions
+  paymentId String?
+
+  items Json
+
+  fullName String
+  email    String
+  phone    String
+  address  String
+  comment  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationCode {
+  id Int @id @default(autoincrement())
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int  @unique
+
+  code String @unique
+
+  createdAt DateTime @default(now())
+
+  // In case somehow unlogged user gets same token as created user
+  @@unique([code, userId])
+}
+
+enum OrderStatus {
+  PENDING
+  SUCCEEDED
+  CANCELED
+}
+
+enum UserRole {
+  USER
+  MANAGER
+  ADMIN
+}
+
+// ---- EXAMPLE -----
+// model Post {
+//   id        Int     @id @default(autoincrement())
+//   title     String
+//   content   String?
+//   published Boolean @default(false)
+//   author    User?   @relation(fields: [authorId], references: [id])
+//   authorId  Int?
+// }
+
+// model User {
+//   id    Int     @id @default(autoincrement())
+//   email String  @unique
+//   name  String?
+//   posts Post[]
+// }
